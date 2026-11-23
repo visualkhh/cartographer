@@ -17,7 +17,16 @@
 #ifndef CARTOGRAPHER_MAPPING_EIGEN_QUATERNIOND_FROM_TWO_VECTORS_H_
 #define CARTOGRAPHER_MAPPING_EIGEN_QUATERNIOND_FROM_TWO_VECTORS_H_
 
+// GCC 13 + Eigen 3.4 false-positive (-Werror=maybe-uninitialized in
+// Eigen::QuaternionBase::setFromTwoVectors). Not our code — silence locally.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include "Eigen/Geometry"
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 namespace cartographer {
 namespace mapping {

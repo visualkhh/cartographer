@@ -36,6 +36,18 @@ struct YawOnlyQuaternionPlus {
     ceres::QuaternionProduct(q_delta, x, x_plus_delta);
     return true;
   }
+  // Ceres 2 Manifold API (AutoDiffManifold): Plus + exact inverse Minus.
+  template <typename T>
+  bool Plus(const T* x, const T* delta, T* x_plus_delta) const {
+    return operator()(x, delta, x_plus_delta);
+  }
+  template <typename T>
+  bool Minus(const T* y, const T* x, T* y_minus_x) const {
+    const T yaw_y = T(2.) * ceres::atan2(y[3], y[0]);
+    const T yaw_x = T(2.) * ceres::atan2(x[3], x[0]);
+    y_minus_x[0] = ceres::sin((yaw_y - yaw_x) / T(2.));
+    return true;
+  }
 };
 
 struct ConstantYawQuaternionPlus {
@@ -57,6 +69,25 @@ struct ConstantYawQuaternionPlus {
     // that have nothing to do with gravity alignment (i.e. we disallow steps
     // just changing "yaw" of the complete map).
     ceres::QuaternionProduct(x, q_delta, x_plus_delta);
+    return true;
+  }
+  // Ceres 2 Manifold API (AutoDiffManifold): Plus + exact inverse Minus.
+  template <typename T>
+  bool Plus(const T* x, const T* delta, T* x_plus_delta) const {
+    return operator()(x, delta, x_plus_delta);
+  }
+  template <typename T>
+  bool Minus(const T* y, const T* x, T* y_minus_x) const {
+    // q_rel = conj(x) * y, then recover the xy tangent (inverse of Plus).
+    const T x_conj[4] = {x[0], -x[1], -x[2], -x[3]};
+    T q_rel[4];
+    ceres::QuaternionProduct(x_conj, y, q_rel);
+    const T n = ceres::sqrt(common::Pow2(q_rel[1]) +
+                            common::Pow2(q_rel[2]) + T(1e-24));
+    const T half_angle = ceres::atan2(n, q_rel[0]);
+    const T scale = n < T(1e-9) ? T(1.) : half_angle / n;
+    y_minus_x[0] = scale * q_rel[1];
+    y_minus_x[1] = scale * q_rel[2];
     return true;
   }
 };
